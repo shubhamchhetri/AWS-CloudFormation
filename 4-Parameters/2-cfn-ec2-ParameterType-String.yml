@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AZ EC2 Instance.
+
+
+Parameters:
+  MykeyName:
+    Description: Select the key name from the list
+    Type: AWS::EC2::KeyPair::KeyName
+  MyAvailabilityZone:
+    Description: select the AZ
+    Type: String
+    Default: ap-south-1b
+    AllowedValues:
+    - ap-south-1a
+    - ap-south-1b
+
+Resources:
+  DevEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-026669ec456129a70
+      InstanceType: t2.micro
+      KeyName: !Ref MykeyName
+      SecurityGroups:
+        - default
+        - !Ref SSHSecurityGroup
+      AvailabilityZone: !Ref MyAvailabilityZone   
+  SSHSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: my new SSH SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+  
