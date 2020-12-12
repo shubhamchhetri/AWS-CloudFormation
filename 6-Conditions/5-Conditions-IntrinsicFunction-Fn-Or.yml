@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Conditions Practice
+
+Parameters:
+  EnvironmentName:
+    Description: Select the environment 
+    Type: String
+    Default: dev
+    AllowedValues: 
+      - dev
+      - prod
+      - qa
+    ConstraintDescription: must be development or production      
+
+Mappings:     
+  MyRegionMap:
+    ap-south-1:
+      HVM64: ami-08f63db601b82ff5f 
+    ap-northeast-2:
+      HVM64: ami-03461b78fdba0ff9d
+
+  MyEnvironmentMap:
+    dev:
+      instanceType: t2.micro
+    prod:
+      instanceType: t2.micro 
+    qa:
+      instanceType: t2.micro       
+
+Conditions:
+  CreateEIPForProd: !Equals [!Ref EnvironmentName, prod]
+  CreateProdSecurityGroup: !Equals [!Ref EnvironmentName, prod]
+  CreateDevSecurityGroup: !Not [{Condition: CreateProdSecurityGroup}]
+  IfRegionUseKeyName: !Or [!Equals [!Ref 'AWS::Region', ap-south-1], !Equals [!Ref 'AWS::Region', ap-northeast-2]]
+
+Resources:
+  MyVMInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !FindInMap
+        - MyRegionMap
+        - !Ref 'AWS::Region'
+        - HVM64
+      InstanceType: !FindInMap
+        - MyEnvironmentMap
+        - !Ref EnvironmentName
+        - instanceType
+      KeyName: !If [IfRegionUseKeyName,cfn-key-1,cfn-key-2]
+      SecurityGroups: !If [CreateDevSecurityGroup,[!Ref DevEnvSecurityGroup], [!Ref ProdEnvSecurityGroup]]
+
+
+  MyProdEIP:
+   Type: AWS::EC2::EIP
+   Condition: CreateEIPForProd 
+   Properties:
+      InstanceId: !Ref MyVMInstance 
+
+  DevEnvSecurityGroup:
+   Type: AWS::EC2::SecurityGroup
+   Condition: CreateDevSecurityGroup
+   Properties:
+    GroupDescription: DevSG
+    SecurityGroupIngress:
+    - IpProtocol: tcp
+      FromPort: '22'
+      ToPort: '22'
+      CidrIp: 0.0.0.0/0    
+  
+  ProdEnvSecurityGroup:
+   Type: AWS::EC2::SecurityGroup
+   Condition: CreateProdSecurityGroup
+   Properties:
+    GroupDescription: ProdSG
+    SecurityGroupIngress:
+    - IpProtocol: tcp
+      FromPort: '22'
+      ToPort: '22'
+      CidrIp: 0.0.0.0/0    
