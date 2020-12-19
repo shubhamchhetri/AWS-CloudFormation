@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CFN Init Demo
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+
+
+
+Resources:
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: My SG with port 22, 8080 and 80 inbound
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        Cidr: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '8080'
+        ToPort: '8080'
+        CidrIp: 0.0.0.0/0
+
+  MyVMInstances:
+    Type: AWS::EC2::Instance
+    Metadata:
+      Comment: Deploy a simple Tomcat Application
+      AWS::CloudFormation::Init:
+        Config:
+          packages:
+            yum:
+              java-1.8.0-openjdk.x86_64: []
+              java-1.8.0-openjdk-devel: []
+              tomcat8: []
+          groups:
+            groupone: {}
+            grouptwo:
+              gid: "501"
+          users:
+            user1:
+              groups:
+                - groupone
+                - grouptwo
+              uid: "501"
+              homeDir: "/home" 
+          sources:
+            /tmp: "https://cfn-init-source-demo-121.s3.ap-south-1.amazonaws.com/demo1.zip"
+          files:
+            "/etc/cfn/cfn-hup.conf":
+              content: !Sub |
+                [main]
+                stack=${AWS::StackId}
+                region=${AWS::Region}
+              mode: "000400"
+              owner: "root"
+              group: "root"
+            "/etc/cfn/hooks.d/cfn-auto-reloader.conf":
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.MyVMInstances.Metadata.AWS::CloudFormation::Init
+                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource MyVMInstance --region ${AWS::Region}
+              mode: "000400"
+              owner: "root"
+              group: "root"
+          commands:
+            test1:
+              command: "chmod 755 demo.war"
+              cwd: "/tmp"
+            test2:
+              command: "sudo yum -y erase java-1.7.0-openjdk.x86_64"
+              cwd: "~"
+            test3:
+              command: "rm -rf demo*"
+              cwd: "/var/lib/tomcat8/webapps"
+            test4: "cp demo.war /var/lib/tomcat8/webapps"
+            cwd: "/tmp"    
+          services:
+            sysvinit:
+              tomcat8:
+                enabled: "true"
+                ensureRunning: "true"
+    Properties:
+      ImageId: ami-08f63db601b82ff5f
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      SecurityGroups:
+      - !Ref MySecurityGroup
